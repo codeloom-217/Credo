@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 
@@ -29,7 +30,6 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
         ]
     )
 
-   
     df["credit_amount"] = np.where(
         df["transaction_type"] == "CREDIT",
         df["amount"],
@@ -42,8 +42,11 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
         0
     )
 
-    features = df.groupby("customer_id").agg(
+    df["transaction_month"] = (
+        df["transaction_date"].dt.to_period("M")
+    )
 
+    features = df.groupby("customer_id").agg(
         total_income=("credit_amount", "sum"),
         average_income=("credit_amount", "mean"),
         income_transaction_count=("credit_amount", lambda x: (x > 0).sum()),
@@ -59,12 +62,25 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
         transaction_count=("amount", "count"),
 
         income_volatility=("credit_amount", "std"),
-
         expense_volatility=("debit_amount", "std"),
 
+        mode_diversity=("transaction_mode", "nunique"),
     ).reset_index()
 
-    
+    monthly_activity = (
+        df.groupby(["customer_id", "transaction_month"])
+        .size()
+        .groupby("customer_id")
+        .mean()
+        .rename("average_monthly_transactions")
+    )
+
+    features = features.merge(
+        monthly_activity,
+        on="customer_id",
+        how="left"
+    )
+
     features["expense_to_income_ratio"] = np.where(
         features["total_income"] > 0,
         features["total_expense"] / features["total_income"],
@@ -79,7 +95,6 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
         ) / features["total_income"],
         0
     )
-
 
     features["income_volatility"] = (
         features["income_volatility"].fillna(0)
