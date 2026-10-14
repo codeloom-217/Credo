@@ -1,0 +1,15 @@
+feature,importance
+average_balance,0.5415249493799436
+maximum_balance,0.21435357746957678
+savings_rate,0.05748154359327283
+expense_to_income_ratio,0.044966388696646396
+average_expense,0.02786744536511342
+income_transaction_count,0.018232858855849132
+total_expense,0.01697672636599491
+expense_volatility,0.016688733439313493
+minimum_balance,0.013915698955430593
+transaction_count,0.011197771205362207
+total_income,0.010988101430548175
+expense_transaction_count,0.010190846673698779
+income_volatility,0.008292253803636475
+average_income,0.007323104765613158
