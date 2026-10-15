@@ -65,6 +65,7 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
         expense_volatility=("debit_amount", "std"),
 
         mode_diversity=("transaction_mode", "nunique"),
+        transaction_type_diversity=("transaction_type", "nunique"),
     ).reset_index()
 
     monthly_activity = (
