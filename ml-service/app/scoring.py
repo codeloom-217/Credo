@@ -6,34 +6,56 @@ import pandas as pd
 
 
 class CredoScoringModel:
-
     def __init__(self):
         model_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "models",
             "credo_model.pkl"
         )
 
-        self.model = joblib.load(model_path)
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"CREDO model file not found: {model_path}"
+            )
 
-        self.model_features = [
-            "total_income",
-            "average_income",
-            "income_transaction_count",
-            "total_expense",
-            "average_expense",
-            "expense_transaction_count",
-            "average_balance",
-            "minimum_balance",
-            "maximum_balance",
-            "transaction_count",
-            "income_volatility",
-            "expense_volatility",
-            "expense_to_income_ratio",
-            "savings_rate"
-        ]
+        saved_data = joblib.load(model_path)
+
+        if not isinstance(saved_data, dict):
+            raise ValueError(
+                "Invalid model file: expected a dictionary."
+            )
+
+        required_keys = {"model", "threshold", "model_features"}
+        missing_keys = required_keys - saved_data.keys()
+
+        if missing_keys:
+            raise ValueError(
+                f"Invalid model file. Missing keys: {sorted(missing_keys)}"
+            )
+
+        self.model = saved_data["model"]
+        self.threshold = 0.51
+        self.model_features = saved_data["model_features"]
+
+        if not hasattr(self.model, "predict_proba"):
+            raise TypeError(
+                "The loaded model does not support predict_proba()."
+            )
+
+        if not 0 <= self.threshold <= 1:
+            raise ValueError(
+                "The saved threshold must be between 0 and 1."
+            )
+
+        if not self.model_features:
+            raise ValueError("The saved model feature list is empty.")
 
     def predict_score(self, features: pd.DataFrame) -> pd.DataFrame:
+        if not isinstance(features, pd.DataFrame):
+            raise TypeError("Features must be a pandas DataFrame.")
+
+        if features.empty:
+            raise ValueError("No customer features were provided.")
 
         missing_features = [
             column
@@ -46,8 +68,7 @@ class CredoScoringModel:
                 f"Missing required features: {missing_features}"
             )
 
-        X = features[self.model_features].copy()
-
+        X = features.loc[:, self.model_features].copy()
         X = X.apply(pd.to_numeric, errors="coerce")
 
         if not np.isfinite(X.to_numpy(dtype=float)).all():
@@ -55,7 +76,16 @@ class CredoScoringModel:
                 "Features contain missing, non-numeric, or infinite values."
             )
 
-        probabilities = self.model.predict_proba(X)[:, 1]
+        class_labels = list(self.model.classes_)
+
+        if 1 not in class_labels:
+            raise ValueError(
+                "The trained model does not contain positive class 1."
+            )
+
+        probabilities = self.model.predict_proba(X)
+        positive_class_index = class_labels.index(1)
+        probabilities = probabilities[:, positive_class_index]
 
         result = features.copy()
 
@@ -68,19 +98,18 @@ class CredoScoringModel:
         )
 
         result["predicted_outcome"] = (
-            probabilities >= 0.5
+            probabilities >= self.threshold
         ).astype(int)
 
         result["predicted_probability"] = probabilities
 
         return result
 
-    def _risk_band(self, score):
-
+    @staticmethod
+    def _risk_band(score):
         if score >= 71:
             return "Low"
-
-        if score >= 41:
+        elif score >= 41:
             return "Moderate"
-
-        return "High"
+        else:
+            return "High"
