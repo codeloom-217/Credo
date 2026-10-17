@@ -1,11 +1,13 @@
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import List
-import pandas as pd
+import traceback
 
+import pandas as pd
+from fastapi import FastAPI, HTTPException
+
+from app.schemas import ScoreRequest
 from app.features import extract_features
 from app.scoring import CredoScoringModel
+
 
 app = FastAPI(
     title="CREDO ML Service",
@@ -15,17 +17,6 @@ app = FastAPI(
 
 scoring_model = CredoScoringModel()
 
-class Transaction(BaseModel):
-    customer_id: str
-    transaction_date: str
-    transaction_type: str
-    amount: float
-    balance: float
-    transaction_mode: str
-    narration: str
-
-class ScoreRequest(BaseModel):
-    transactions: List[Transaction]
 
 @app.get("/")
 def home():
@@ -41,13 +32,15 @@ def health():
         "service": "CREDO ML Service"
     }
 
+
 @app.post("/score")
 def score(request: ScoreRequest):
-
     try:
         transaction_data = pd.DataFrame(
-            [transaction.model_dump()
-             for transaction in request.transactions]
+            [
+                transaction.model_dump()
+                for transaction in request.transactions
+            ]
         )
 
         if transaction_data.empty:
@@ -56,7 +49,6 @@ def score(request: ScoreRequest):
                 detail="At least one transaction is required."
             )
 
-        
         features = extract_features(transaction_data)
 
         if features.empty:
@@ -67,7 +59,6 @@ def score(request: ScoreRequest):
 
         results = scoring_model.predict_score(features)
 
-        
         return {
             "status": "success",
             "results": results.to_dict(orient="records")
@@ -83,6 +74,7 @@ def score(request: ScoreRequest):
         )
 
     except Exception:
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail="An internal error occurred while scoring."
