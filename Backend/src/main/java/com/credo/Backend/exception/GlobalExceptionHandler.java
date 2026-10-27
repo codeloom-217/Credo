@@ -18,25 +18,29 @@ import java.time.Instant;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiError> handleValidation(
-            MethodArgumentNotValidException ex,
-            HttpServletRequest request) {
+@ExceptionHandler(MethodArgumentNotValidException.class)
+public ResponseEntity<ApiError> handleValidation(
+        MethodArgumentNotValidException ex,
+        HttpServletRequest request) {
 
-        String message = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .findFirst()
-                .map(error -> error.getField() + ": "
-                        + error.getDefaultMessage())
-                .orElse("Request validation failed");
+    String message = ex.getBindingResult()
+            .getFieldErrors()
+            .stream()
+            .map(error -> error.getField() + ": "
+                    + error.getDefaultMessage())
+            .distinct()
+            .collect(java.util.stream.Collectors.joining("; "));
 
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                message,
-                request
-        );
+    if (message.isBlank()) {
+        message = "Request validation failed";
     }
+
+    return buildResponse(
+            HttpStatus.BAD_REQUEST,
+            message,
+            request
+    );
+}
 
     @ExceptionHandler({
             HttpMessageNotReadableException.class,
