@@ -95,18 +95,24 @@ public ResponseEntity<ApiError> handleValidation(
     }
 
     private ResponseEntity<ApiError> buildResponse(
-            HttpStatus status,
-            String message,
-            HttpServletRequest request) {
+        HttpStatus status,
+        String message,
+        HttpServletRequest request) {
 
-        ApiError error = new ApiError(
-                Instant.now(),
-                status.value(),
-                status.getReasonPhrase(),
-                message,
-                request.getRequestURI()
-        );
+    String requestId = request.getHeader("X-Request-ID");
 
-        return ResponseEntity.status(status).body(error);
+    if (requestId == null || requestId.isBlank()) {
+        requestId = java.util.UUID.randomUUID().toString();
     }
+
+    ApiError error = new ApiError(
+            Instant.now(),
+            status.value(),
+            status.getReasonPhrase(),
+            message,
+            request.getRequestURI(),
+            requestId
+    );
+
+    return ResponseEntity.status(status).body(error);
 }
