@@ -1,3 +1,4 @@
+
 package com.credo.backend.client;
 
 import com.credo.backend.config.MlServiceConfig;
@@ -23,5 +24,18 @@ public class MlServiceClient {
                 .body(request)
                 .retrieve()
                 .body(MlServiceResponse.class);
+    }
+
+    public boolean isHealthy() {
+        try {
+            restClient.get()
+                    .uri("/health")
+                    .retrieve()
+                    .toBodilessEntity();
+
+            return true;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 }
