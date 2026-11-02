@@ -32,6 +32,11 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         } finally {
             long duration = System.currentTimeMillis() - startTime;
 
+            response.setHeader(
+                    "X-Response-Time",
+                    duration + " ms"
+            );
+
             logger.info(
                     "{} {} - Status: {} - Duration: {} ms",
                     request.getMethod(),
