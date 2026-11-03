@@ -1,7 +1,10 @@
+
 package com.credo.backend.dto.request;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Pattern;
 
 public record TransactionRequest(
 
@@ -9,6 +12,10 @@ public record TransactionRequest(
         String customer_id,
 
         @NotBlank
+        @Pattern(
+                regexp = "^\\d{4}-\\d{2}-\\d{2}$",
+                message = "Transaction date must be in YYYY-MM-DD format"
+        )
         String transaction_date,
 
         @NotBlank
