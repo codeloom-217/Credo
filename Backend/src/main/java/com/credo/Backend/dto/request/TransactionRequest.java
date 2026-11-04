@@ -19,7 +19,12 @@ public record TransactionRequest(
         String transaction_date,
 
         @NotBlank
-        String transaction_type,
+@Pattern(
+    regexp = "^(CREDIT|DEBIT)$",
+    flags = Pattern.Flag.CASE_INSENSITIVE,
+    message = "Transaction type must be CREDIT or DEBIT"
+)
+String transaction_type,
 
         @NotNull
         @PositiveOrZero
