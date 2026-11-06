@@ -3,6 +3,7 @@ package com.credo.backend.service;
 
 import com.credo.backend.client.MlServiceClient;
 import com.credo.backend.dto.request.ScoreRequest;
+import com.credo.backend.dto.request.TransactionRequest;
 import com.credo.backend.dto.response.MlServiceResponse;
 import com.credo.backend.dto.response.ScoreResponse;
 import com.credo.backend.entity.ScoreRecord;
@@ -10,8 +11,10 @@ import com.credo.backend.repository.ScoreRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class ScoreService {
@@ -40,12 +43,34 @@ public class ScoreService {
                     "Invalid response received from ML service");
         }
 
+        Set<String> requestedCustomerIds = request.transactions()
+                .stream()
+                .map(TransactionRequest::customer_id)
+                .collect(Collectors.toSet());
+
+        Set<String> returnedCustomerIds = new HashSet<>();
+
+        for (MlServiceResponse.Result result : response.results()) {
+
+            if (result == null
+                    || result.customerId() == null
+                    || result.customerId().isBlank()
+                    || !returnedCustomerIds.add(result.customerId())) {
+
+                throw new IllegalStateException(
+                        "ML service returned invalid or duplicate customer results");
+            }
+        }
+
+        if (!requestedCustomerIds.equals(returnedCustomerIds)) {
+            throw new IllegalStateException(
+                    "ML service response does not match requested customers");
+        }
+
         List<ScoreRecord> records = response.results().stream()
                 .map(result -> {
 
-                    if (result.customerId() == null
-                            || result.customerId().isBlank()
-                            || result.credoScore() == null
+                    if (result.credoScore() == null
                             || result.credoScore() < 1
                             || result.credoScore() > 100
                             || result.riskBand() == null
