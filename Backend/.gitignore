@@ -1,24 +1,25 @@
+
 HELP.md
-.gradle
+.gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 
 ### STS ###
-.apt_generated
+.apt_generated/
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
-.sts4-cache
+.sts4-cache/
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -35,3 +36,15 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Environment secrets ###
+.env
+.env.*
+!.env.example
+
+### Java generated files ###
+*.class
+
+### Application logs ###
+*.log
+logs/
