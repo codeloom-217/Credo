@@ -40,8 +40,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/error").permitAll()
-                        .anyRequest().authenticated())
+        .requestMatchers("/health", "/error").permitAll()
+        .anyRequest().authenticated())
                 .addFilterBefore(
                         apiKeyAuthFilter,
                         UsernamePasswordAuthenticationFilter.class);
@@ -57,10 +57,13 @@ public class SecurityConfig {
             this.configuredApiKey = configuredApiKey;
         }
 
-        @Override
-        protected boolean shouldNotFilter(HttpServletRequest request) {
-            return "/error".equals(request.getServletPath());
-        }
+       @Override
+protected boolean shouldNotFilter(HttpServletRequest request) {
+    String path = request.getServletPath();
+
+    return "/health".equals(path)
+            || "/error".equals(path);
+}
 
         @Override
         protected void doFilterInternal(
