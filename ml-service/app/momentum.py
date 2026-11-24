@@ -103,9 +103,12 @@ def calculate_momentum(transactions: pd.DataFrame) -> dict:
             if total_income > 0 else None
         )
 
+        income_mean = period["income"].mean()
+        income_std = period["income"].std(ddof=0)
+
         income_consistency = (
-            period["income"].mean() / total_income * 3
-            if total_income > 0 else None
+            max(0, 1 - (income_std / income_mean))
+            if income_mean > 0 else None
         )
 
         expense_ratio = (
