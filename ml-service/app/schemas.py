@@ -1,6 +1,6 @@
 
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 
 class Transaction(BaseModel):
@@ -23,6 +23,8 @@ class CustomerScore(BaseModel):
     risk_band: str
     predicted_outcome: int = Field(ge=0, le=1)
     predicted_probability: float = Field(ge=0, le=1)
+    momentum: str
+    momentum_change_percent: Optional[float] = None
 
 
 class ScoreResponse(BaseModel):
