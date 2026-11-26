@@ -4,18 +4,22 @@ import numpy as np
 
 
 def calculate_momentum(transactions: pd.DataFrame) -> dict:
+    insufficient_data = {
+        "momentum": "NEED_REVIEW",
+        "momentum_change_percent": None
+    }
+
     required_columns = {
         "transaction_date",
         "amount",
         "transaction_type"
     }
 
-    insufficient_data = {
-        "momentum": "NEED_REVIEW",
-        "momentum_change_percent": None
-    }
-
-    if not required_columns.issubset(transactions.columns):
+    if (
+        not isinstance(transactions, pd.DataFrame)
+        or transactions.empty
+        or not required_columns.issubset(transactions.columns)
+    ):
         return insufficient_data
 
     data = transactions.copy()
@@ -31,7 +35,10 @@ def calculate_momentum(transactions: pd.DataFrame) -> dict:
     )
 
     data["transaction_type"] = (
-        data["transaction_type"].astype(str).str.upper().str.strip()
+        data["transaction_type"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
     )
 
     data = data.dropna(
@@ -41,6 +48,7 @@ def calculate_momentum(transactions: pd.DataFrame) -> dict:
     data = data[
         data["transaction_type"].isin(["CREDIT", "DEBIT"])
         & (data["amount"] >= 0)
+        & np.isfinite(data["amount"])
     ]
 
     if data.empty:
@@ -49,18 +57,20 @@ def calculate_momentum(transactions: pd.DataFrame) -> dict:
     latest_month = data["transaction_date"].max().to_period("M")
     first_month = latest_month - 5
 
+    month_range = pd.period_range(
+        first_month,
+        latest_month,
+        freq="M"
+    )
+
+    data["month"] = data["transaction_date"].dt.to_period("M")
+
     data = data[
-        data["transaction_date"].dt.to_period("M").between(
-            first_month, latest_month
-        )
+        data["month"].isin(month_range)
     ]
 
-    monthly_count = data.groupby(
-        data["transaction_date"].dt.to_period("M")
-    ).size()
-
-    monthly_count = monthly_count.reindex(
-        pd.period_range(first_month, latest_month, freq="M"),
+    monthly_count = data.groupby("month").size().reindex(
+        month_range,
         fill_value=0
     )
 
@@ -79,17 +89,10 @@ def calculate_momentum(transactions: pd.DataFrame) -> dict:
         0
     )
 
-    data["month"] = data["transaction_date"].dt.to_period("M")
-
     monthly_features = data.groupby("month").agg(
         income=("income", "sum"),
         expense=("expense", "sum")
-    )
-
-    monthly_features = monthly_features.reindex(
-        pd.period_range(first_month, latest_month, freq="M"),
-        fill_value=0
-    )
+    ).reindex(month_range, fill_value=0)
 
     previous = monthly_features.iloc[:3]
     recent = monthly_features.iloc[3:]
@@ -98,10 +101,12 @@ def calculate_momentum(transactions: pd.DataFrame) -> dict:
         total_income = period["income"].sum()
         total_expense = period["expense"].sum()
 
+        if total_income <= 0:
+            return None
+
         savings_rate = (
-            (total_income - total_expense) / total_income
-            if total_income > 0 else None
-        )
+            total_income - total_expense
+        ) / total_income
 
         income_mean = period["income"].mean()
         income_std = period["income"].std(ddof=0)
@@ -111,55 +116,47 @@ def calculate_momentum(transactions: pd.DataFrame) -> dict:
             if income_mean > 0 else None
         )
 
-        expense_ratio = (
-            total_expense / total_income
-            if total_income > 0 else None
-        )
-
         return {
             "savings_rate": savings_rate,
-            "income_consistency": income_consistency,
-            "expense_ratio": expense_ratio
+            "income_consistency": income_consistency
         }
 
     previous_metrics = calculate_indicators(previous)
     recent_metrics = calculate_indicators(recent)
 
+    if previous_metrics is None or recent_metrics is None:
+        return insufficient_data
+
     if any(
-        value is None
+        value is None or not np.isfinite(value)
         for metrics in [previous_metrics, recent_metrics]
         for value in metrics.values()
     ):
         return insufficient_data
 
-    changes = {
-        "savings_rate": (
-            recent_metrics["savings_rate"]
-            - previous_metrics["savings_rate"]
-        ),
-        "income_consistency": (
-            recent_metrics["income_consistency"]
-            - previous_metrics["income_consistency"]
-        ),
-        "expense_ratio": (
-            previous_metrics["expense_ratio"]
-            - recent_metrics["expense_ratio"]
-        )
-    }
+    savings_rate_change = (
+        recent_metrics["savings_rate"]
+        - previous_metrics["savings_rate"]
+    )
+
+    income_consistency_change = (
+        recent_metrics["income_consistency"]
+        - previous_metrics["income_consistency"]
+    )
 
     weights = {
-        "savings_rate": 0.40,
-        "income_consistency": 0.30,
-        "expense_ratio": 0.30
+        "savings_rate": 0.70,
+        "income_consistency": 0.30
     }
 
-    momentum_index = sum(
-        changes[feature] * weights[feature]
-        for feature in weights
+    momentum_index = (
+        savings_rate_change * weights["savings_rate"]
+        + income_consistency_change * weights["income_consistency"]
     )
 
     momentum_change_percent = round(
-        momentum_index * 100, 2
+        momentum_index * 100,
+        2
     )
 
     if momentum_change_percent > 2:
