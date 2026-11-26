@@ -74,3 +74,52 @@ def test_missing_required_columns():
 
     assert result["momentum"] == "NEED_REVIEW"
     assert result["momentum_change_percent"] is None
+
+
+def test_empty_transactions():
+    transactions = pd.DataFrame()
+
+    result = calculate_momentum(transactions)
+
+    assert result["momentum"] == "NEED_REVIEW"
+    assert result["momentum_change_percent"] is None
+
+
+def test_missing_month():
+    transactions = create_transactions(
+        incomes=[10000] * 6,
+        expenses=[8000] * 6
+    )
+
+    transactions = transactions[
+        transactions["transaction_date"] != pd.Timestamp("2026-03-01")
+    ]
+
+    result = calculate_momentum(transactions)
+
+    assert result["momentum"] == "NEED_REVIEW"
+    assert result["momentum_change_percent"] is None
+
+
+def test_zero_income():
+    transactions = create_transactions(
+        incomes=[10000, 10000, 10000, 0, 0, 0],
+        expenses=[8000, 8000, 8000, 5000, 5000, 5000]
+    )
+
+    result = calculate_momentum(transactions)
+
+    assert result["momentum"] == "NEED_REVIEW"
+    assert result["momentum_change_percent"] is None
+
+
+def test_income_consistency_affects_momentum():
+    transactions = create_transactions(
+        incomes=[10000, 10000, 10000, 8000, 10000, 12000],
+        expenses=[5000, 5000, 5000, 5000, 5000, 5000]
+    )
+
+    result = calculate_momentum(transactions)
+
+    assert result["momentum"] == "DECLINING"
+    assert result["momentum_change_percent"] < 0
