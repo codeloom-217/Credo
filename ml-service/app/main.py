@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from app.schemas import ScoreRequest
 from app.features import extract_features
 from app.scoring import CredoScoringModel
+from app.momentum import calculate_momentum
 
 
 app = FastAPI(
@@ -59,9 +60,24 @@ def score(request: ScoreRequest):
 
         results = scoring_model.predict_score(features)
 
+        result_records = results.to_dict(orient="records")
+
+        for result in result_records:
+            customer_id = result["customer_id"]
+
+            customer_transactions = transaction_data[
+                transaction_data["customer_id"] == customer_id
+            ]
+
+            momentum_result = calculate_momentum(
+                customer_transactions
+            )
+
+            result.update(momentum_result)
+
         return {
             "status": "success",
-            "results": results.to_dict(orient="records")
+            "results": result_records
         }
 
     except HTTPException:
